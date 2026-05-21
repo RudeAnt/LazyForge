@@ -202,7 +202,7 @@ else:
                     if not errors_df.empty:
                         st.bar_chart(errors_df['разметчик'].value_counts(), color="#f7768e")
                     else:
-                        st.success("No annotator errors found!")
+                        st.success("No annotator errors found!") //author test
         
         with tab2:
             st.markdown("<br><span style='color: #9ece6a;'>Objects ranked by integral utility for next training iteration</span>", unsafe_allow_html=True)
