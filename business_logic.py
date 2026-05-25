@@ -1,6 +1,7 @@
 import pandas as pd
 from math_engine import (
     calculate_base_metrics,
+    calculate_novelty,
     calculate_bayesian_error,
     calculate_class_deficit,
     calculate_utility,
@@ -16,9 +17,11 @@ def initial_process_dataset(raw_df: pd.DataFrame) -> tuple:
     if 'нужен_эксперт' not in raw_df.columns: raw_df['нужен_эксперт'] = False
 
     df = calculate_base_metrics(raw_df, classes)
+    df = calculate_novelty(df, classes)
     return df, classes
 
 def recalculate_dynamic_metrics(df: pd.DataFrame, classes: list) -> pd.DataFrame:
+    df = calculate_novelty(df, classes)
     df = calculate_bayesian_error(df)
     df = calculate_class_deficit(df, classes)
     df = calculate_utility(df)

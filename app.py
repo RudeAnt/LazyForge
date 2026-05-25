@@ -172,6 +172,7 @@ else:
                 st.bar_chart(df['истинный_класс'].value_counts(), color="#7aa2f7")
         
         # --- ВКЛАДКА 2: ОЧЕРЕДЬ И КАРТОЧКА ОБЪЕКТА ---
+# --- ВКЛАДКА 2: ОЧЕРЕДЬ И КАРТОЧКА ОБЪЕКТА ---
         with tab2:
             if role == "Разметчик":
                 st.markdown("<span style='color: #f7768e;'>Доступ закрыт.</span>", unsafe_allow_html=True)
@@ -214,7 +215,8 @@ else:
                 
                 st.divider()
                 st.markdown("<span style='color: #9ece6a;'>Топ объектов для дообучения</span>", unsafe_allow_html=True)
-                st.dataframe(active_learning_queue[['id_объекта', 'истинный_класс', 'предсказанный_класс', 'полезность', 'энтропия', 'уверенность']], use_container_width=True)
+                # РАСШИРЕННЫЙ СПИСОК СТОЛБЦОВ
+                st.dataframe(active_learning_queue[['id_объекта', 'истинный_класс', 'предсказанный_класс', 'полезность', 'вероятность_ошибки_разметки', 'новизна', 'дефицит_класса', 'энтропия', 'уверенность']], use_container_width=True)
                 
         # --- ВКЛАДКА 3: ДИНАМИЧЕСКАЯ РАЗМЕТКА ---
         with tab3:
@@ -225,15 +227,19 @@ else:
                 edit_subset = df[(df['вероятность_ошибки_разметки'] > 0.5) | (df['нужен_эксперт'] == True)]
                 
                 if not edit_subset.empty:
+                    # РАСШИРЕННЫЙ СПИСОК СТОЛБЦОВ В РЕДАКТОРЕ
                     edited_slice = st.data_editor(
-                        edit_subset[['id_объекта', 'истинный_класс', 'предсказанный_класс', 'вероятность_ошибки_разметки', 'комментарий', 'нужен_эксперт']],
+                        edit_subset[['id_объекта', 'истинный_класс', 'предсказанный_класс', 'уверенность', 'вероятность_ошибки_разметки', 'новизна', 'комментарий', 'нужен_эксперт']],
                         column_config={
                             "истинный_класс": st.column_config.SelectboxColumn("Истинный класс", options=classes, required=True),
                             "предсказанный_класс": "Предсказание сети",
+                            "уверенность": st.column_config.NumberColumn("Уверенность сети", format="%.4f"),
+                            "новизна": st.column_config.NumberColumn("Степень новизны", format="%.4f"),
                             "комментарий": st.column_config.TextColumn("Комментарий"),
                             "нужен_эксперт": st.column_config.CheckboxColumn("В эскалацию")
                         },
-                        disabled=["id_объекта", "предсказанный_класс", "вероятность_ошибки_разметки"] if role == "Разметчик" else ["id_объекта", "предсказанный_класс"],
+                        # Блокируем новые системные столбцы от ручного редактирования
+                        disabled=["id_объекта", "предсказанный_класс", "уверенность", "вероятность_ошибки_разметки", "новизна"] if role == "Разметчик" else ["id_объекта", "предсказанный_класс", "уверенность", "новизна"],
                         use_container_width=True, hide_index=True, key=f"editor_{active_name}"
                     )
                     
@@ -249,7 +255,6 @@ else:
                             changed = True
                             
                     if changed:
-                        # ИСПОЛЬЗУЕМ ВЫНЕСЕННУЮ БИЗНЕС-ЛОГИКУ
                         df = bl.recalculate_dynamic_metrics(df, classes)
                         st.session_state.projects[active_name]['data'] = df
                         st.rerun() 
@@ -258,48 +263,53 @@ else:
 
         # --- ВКЛАДКА 4: БАЗА И ВЕРСИИ ---
         with tab4:
-            st.markdown("<br><span style='color: #7dcfff;'>Система управления версиями данных (DVC)</span>", unsafe_allow_html=True)
-            
-            if role == "Администратор проекта":
-                with st.expander("Добавить новые данные (Загрузка нового CSV)"):
-                    new_file = st.file_uploader("Загрузить файл для обогащения датасета", type=['csv'], key="new_csv")
-                    if new_file is not None:
-                        ver_name = f"v_before_merge_{datetime.datetime.now().strftime('%H:%M:%S')}"
-                        st.session_state.projects[active_name]['versions'].append({"name": ver_name, "data": df.copy(), "readiness": readiness_lvl})
-                        
-                        raw_df = pd.read_csv(new_file)
-                        processed_df, ext_classes = bl.initial_process_dataset(raw_df)
-                        final_df = bl.recalculate_dynamic_metrics(processed_df, ext_classes)
-                        
-                        st.session_state.projects[active_name]['data'] = final_df
-                        st.session_state.projects[active_name]['classes'] = ext_classes
-                        st.rerun()
-            
-            display_df = df.copy()
-            display_df['Статус'] = display_df.apply(bl.assign_status, axis=1)
-            st.dataframe(display_df[['id_объекта', 'Статус', 'истинный_класс', 'предсказанный_класс', 'уверенность', 'энтропия', 'комментарий']], use_container_width=True)
-            
-            st.divider()
-            st.markdown("#### История коммитов (Откат версий)")
-            if proj_data['versions']:
-                ver_names = [v['name'] for v in proj_data['versions']]
-                selected_ver = st.selectbox("Выберите версию для возврата:", ver_names)
-                if st.button("Откатить датасет к выбранной версии"):
-                    for v in proj_data['versions']:
-                        if v['name'] == selected_ver:
-                            backup_name = f"backup_{datetime.datetime.now().strftime('%H:%M:%S')}"
-                            st.session_state.projects[active_name]['versions'].append({"name": backup_name, "data": df.copy(), "readiness": readiness_lvl})
-                            st.session_state.projects[active_name]['data'] = v['data'].copy()
-                            st.rerun()
+            # ЗАКРЫВАЕМ ДОСТУП ДЛЯ РОЛЕЙ РАЗМЕТКИ
+            if role in ["Разметчик", "Эксперт предметной области"]:
+                st.markdown("<span style='color: #f7768e;'>Доступ закрыт. Управление версиями доступно Администраторам, ML-инженерам и Аналитикам.</span>", unsafe_allow_html=True)
             else:
-                st.info("Нет сохраненных версий.")
+                st.markdown("<br><span style='color: #7dcfff;'>Система управления версиями данных (DVC)</span>", unsafe_allow_html=True)
                 
-            if st.button("Создать коммит (Сохранить текущую версию)"):
-                new_ver = f"commit_{datetime.datetime.now().strftime('%H:%M:%S')}"
-                st.session_state.projects[active_name]['versions'].append({"name": new_ver, "data": df.copy(), "readiness": readiness_lvl})
-                st.success(f"Версия {new_ver} сохранена!")
-                st.rerun()
-
+                if role == "Администратор проекта":
+                    with st.expander("Добавить новые данные (Загрузка нового CSV)"):
+                        new_file = st.file_uploader("Загрузить файл для обогащения датасета", type=['csv'], key="new_csv")
+                        if new_file is not None:
+                            ver_name = f"v_before_merge_{datetime.datetime.now().strftime('%H:%M:%S')}"
+                            st.session_state.projects[active_name]['versions'].append({"name": ver_name, "data": df.copy(), "readiness": readiness_lvl})
+                            
+                            raw_df = pd.read_csv(new_file)
+                            processed_df, ext_classes = bl.initial_process_dataset(raw_df)
+                            final_df = bl.recalculate_dynamic_metrics(processed_df, ext_classes)
+                            
+                            st.session_state.projects[active_name]['data'] = final_df
+                            st.session_state.projects[active_name]['classes'] = ext_classes
+                            st.rerun()
+                
+                display_df = df.copy()
+                display_df['Статус'] = display_df.apply(bl.assign_status, axis=1)
+                # РАСШИРЕННЫЙ СПИСОК СТОЛБЦОВ
+                st.dataframe(display_df[['id_объекта', 'Статус', 'истинный_класс', 'предсказанный_класс', 'уверенность', 'вероятность_ошибки_разметки', 'новизна', 'дефицит_класса', 'полезность', 'энтропия', 'дубликат', 'комментарий']], use_container_width=True)
+                
+                st.divider()
+                st.markdown("#### История коммитов (Откат версий)")
+                if proj_data['versions']:
+                    ver_names = [v['name'] for v in proj_data['versions']]
+                    selected_ver = st.selectbox("Выберите версию для возврата:", ver_names)
+                    if st.button("Откатить датасет к выбранной версии"):
+                        for v in proj_data['versions']:
+                            if v['name'] == selected_ver:
+                                backup_name = f"backup_{datetime.datetime.now().strftime('%H:%M:%S')}"
+                                st.session_state.projects[active_name]['versions'].append({"name": backup_name, "data": df.copy(), "readiness": readiness_lvl})
+                                st.session_state.projects[active_name]['data'] = v['data'].copy()
+                                st.rerun()
+                else:
+                    st.info("Нет сохраненных версий.")
+                    
+                if st.button("Создать коммит (Сохранить текущую версию)"):
+                    new_ver = f"commit_{datetime.datetime.now().strftime('%H:%M:%S')}"
+                    st.session_state.projects[active_name]['versions'].append({"name": new_ver, "data": df.copy(), "readiness": readiness_lvl})
+                    st.success(f"Версия {new_ver} сохранена!")
+                    st.rerun()
+        
         # --- ВКЛАДКА 5: LLM ---
         with tab5:
             if role in ["Разметчик", "Эксперт предметной области"]:
