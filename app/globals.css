@@ -1,0 +1,159 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* TokyoNight Theme */
+:root {
+  /* Core TokyoNight colors */
+  --tokyo-bg: #1a1b26;
+  --tokyo-bg-dark: #16161e;
+  --tokyo-bg-highlight: #1f2335;
+  --tokyo-border: #292e42;
+  --tokyo-border-highlight: #3b4261;
+  --tokyo-fg: #a9b1d6;
+  --tokyo-fg-dark: #565f89;
+  --tokyo-comment: #565f89;
+  
+  /* Accent colors */
+  --tokyo-blue: #7aa2f7;
+  --tokyo-purple: #bb9af7;
+  --tokyo-green: #9ece6a;
+  --tokyo-cyan: #7dcfff;
+  --tokyo-orange: #e0af68;
+  --tokyo-red: #f7768e;
+  --tokyo-yellow: #e0af68;
+  
+  /* Map to design tokens */
+  --background: #1a1b26;
+  --foreground: #a9b1d6;
+  --card: #1f2335;
+  --card-foreground: #a9b1d6;
+  --popover: #1f2335;
+  --popover-foreground: #a9b1d6;
+  --primary: #7aa2f7;
+  --primary-foreground: #1a1b26;
+  --secondary: #292e42;
+  --secondary-foreground: #a9b1d6;
+  --muted: #292e42;
+  --muted-foreground: #565f89;
+  --accent: #bb9af7;
+  --accent-foreground: #1a1b26;
+  --destructive: #f7768e;
+  --destructive-foreground: #1a1b26;
+  --border: #292e42;
+  --input: #1f2335;
+  --ring: #7aa2f7;
+  --chart-1: #7aa2f7;
+  --chart-2: #9ece6a;
+  --chart-3: #bb9af7;
+  --chart-4: #e0af68;
+  --chart-5: #7dcfff;
+  --radius: 0px;
+  --sidebar: #16161e;
+  --sidebar-foreground: #a9b1d6;
+  --sidebar-primary: #7aa2f7;
+  --sidebar-primary-foreground: #1a1b26;
+  --sidebar-accent: #292e42;
+  --sidebar-accent-foreground: #a9b1d6;
+  --sidebar-border: #292e42;
+  --sidebar-ring: #7aa2f7;
+  
+  /* Status colors */
+  --status-ok: #9ece6a;
+  --status-warning: #e0af68;
+  --status-error: #f7768e;
+  --status-info: #7aa2f7;
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('https://fonts.gstatic.com/s/firacode/v22/uU9eCBsR6Z2vfE9aq3bL0fxyUs4tcw4W_D1sJVD7MOzlojwUKQ.woff2') format('woff2');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme inline {
+  --font-sans: 'Fira Code', monospace;
+  --font-mono: 'Fira Code', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 2px;
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "liga" 1, "calt" 1;
+  }
+  
+  /* Custom scrollbar for terminal feel */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--tokyo-bg);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--tokyo-border);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--tokyo-border-highlight);
+  }
+}
+
+/* Status tag styles */
+.status-ok {
+  color: var(--status-ok);
+  border-color: var(--status-ok);
+}
+.status-warning {
+  color: var(--status-warning);
+  border-color: var(--status-warning);
+}
+.status-error {
+  color: var(--status-error);
+  border-color: var(--status-error);
+}
+.status-info {
+  color: var(--status-info);
+  border-color: var(--status-info);
+}

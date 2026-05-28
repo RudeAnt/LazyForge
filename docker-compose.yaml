@@ -1,0 +1,12 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lazyforge-web
+    ports:
+      - "3000:3000"
+    restart: always
+    env_file:
+      - path: .env
+        required: false
