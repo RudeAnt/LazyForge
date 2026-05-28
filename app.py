@@ -155,7 +155,7 @@ else:
         active_learning_queue = df[df['дубликат'] == False].sort_values(by='полезность', ascending=False)
         suspicious_data = df[df['вероятность_ошибки_разметки'] > 0.5].sort_values(by='вероятность_ошибки_разметки', ascending=False)
         
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Аналитика", "Очередь (Карточка объекта)", "Разметка", "База и Версии", "LLM Roadmap"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Аналитика", "Очередь", "Разметка", "База и Версии", "LLM Roadmap"])
         
         # --- ВКЛАДКА 1: АНАЛИТИКА ---
         with tab1:
@@ -168,11 +168,27 @@ else:
                 col_m2.metric("Уровень готовности", f"{readiness_lvl}%")
                 col_m3.metric("Индекс дисбаланса", imbalance_idx)
                 col_m4.metric("Потенциальных ошибок", len(suspicious_data))
+                
                 st.divider()
-                st.bar_chart(df['истинный_класс'].value_counts(), color="#7aa2f7")
+                
+                # Разбиваем графики на две колонки
+                col_chart1, col_chart2 = st.columns(2)
+                
+                with col_chart1:
+                    st.markdown("**Распределение объектов по классам**")
+                    st.bar_chart(df['истинный_класс'].value_counts(), color="#7aa2f7")
+                    
+                with col_chart2:
+                    st.markdown("**Количество ошибок по разметчикам**")
+                    # Считаем количество объектов с вероятностью ошибки > 0.5 для каждого автора
+                    author_col = 'разметчик' if 'разметчик' in df.columns else 'автор_разметки'
+                    errors_by_author = df[df['вероятность_ошибки_разметки'] > 0.5][author_col].value_counts()                    
+                    if not errors_by_author.empty:
+                        st.bar_chart(errors_by_author, color="#f7768e")
+                    else:
+                        st.success("Ошибок разметки не обнаружено 🎉")
         
         # --- ВКЛАДКА 2: ОЧЕРЕДЬ И КАРТОЧКА ОБЪЕКТА ---
-# --- ВКЛАДКА 2: ОЧЕРЕДЬ И КАРТОЧКА ОБЪЕКТА ---
         with tab2:
             if role == "Разметчик":
                 st.markdown("<span style='color: #f7768e;'>Доступ закрыт.</span>", unsafe_allow_html=True)
@@ -214,9 +230,43 @@ else:
                         st.warning("Объект не найден.")
                 
                 st.divider()
-                st.markdown("<span style='color: #9ece6a;'>Топ объектов для дообучения</span>", unsafe_allow_html=True)
-                # РАСШИРЕННЫЙ СПИСОК СТОЛБЦОВ
-                st.dataframe(active_learning_queue[['id_объекта', 'истинный_класс', 'предсказанный_класс', 'полезность', 'вероятность_ошибки_разметки', 'новизна', 'дефицит_класса', 'энтропия', 'уверенность']], use_container_width=True)
+                st.markdown("<h4 style='color: #9ece6a;'>Очереди активного обучения (Категории)</h4>", unsafe_allow_html=True)
+                
+                q_tab1, q_tab2, q_tab3, q_tab4, q_tab5 = st.tabs([
+                    "Топ полезных", 
+                    "Конфликт разметки", 
+                    "Зона хаоса", 
+                    "Редкие классы",
+                    "На удаление"
+                ])
+                
+                with q_tab1:
+                    st.markdown("**Самые ценные объекты для следующей итерации (сортировка по Интегральной полезности)**")
+                    st.dataframe(active_learning_queue[['id_объекта', 'истинный_класс', 'предсказанный_класс', 'полезность', 'вероятность_ошибки_разметки', 'новизна', 'дефицит_класса']].head(50), use_container_width=True)
+                
+                with q_tab2:
+                    st.markdown("**Объекты с высоким риском ошибки (Модель не согласна с разметчиком)**")
+                    suspicious_queue = df[df['вероятность_ошибки_разметки'] > 0.5].sort_values(by='вероятность_ошибки_разметки', ascending=False)
+                    
+                    # Динамически определяем имя колонки разметчика
+                    auth_col = 'разметчик' if 'разметчик' in df.columns else 'автор_разметки'
+                    
+                    st.dataframe(suspicious_queue[['id_объекта', auth_col, 'истинный_класс', 'предсказанный_класс', 'вероятность_ошибки_разметки', 'уверенность']].head(50), use_container_width=True)                    
+                
+                with q_tab3:
+                    st.markdown("**Объекты, в которых модель максимально не уверена (Высокая энтропия предсказаний)**")
+                    chaos_queue = df[df['norm_entropy'] > 0.6].sort_values(by='энтропия', ascending=False)
+                    st.dataframe(chaos_queue[['id_объекта', 'истинный_класс', 'предсказанный_класс', 'энтропия', 'уверенность', 'новизна']].head(50), use_container_width=True)
+                    
+                with q_tab4:
+                    st.markdown("**Представители дефицитных классов (Сильный дисбаланс, нужно больше данных)**")
+                    rare_queue = df[df['дефицит_класса'] > 1.0].sort_values(by='дефицит_класса', ascending=False)
+                    st.dataframe(rare_queue[['id_объекта', 'истинный_класс', 'предсказанный_класс', 'дефицит_класса', 'полезность']].head(50), use_container_width=True)
+                    
+                with q_tab5:
+                    st.markdown("**Дубликаты и зашумленные данные (Кандидаты на исключение из датасета)**")
+                    trash_queue = df[df['дубликат'] == True]
+                    st.dataframe(trash_queue[['id_объекта', 'истинный_класс', 'предсказанный_класс', 'уверенность']].head(50), use_container_width=True)                
                 
         # --- ВКЛАДКА 3: ДИНАМИЧЕСКАЯ РАЗМЕТКА ---
         with tab3:
@@ -270,7 +320,7 @@ else:
                 st.markdown("<br><span style='color: #7dcfff;'>Система управления версиями данных (DVC)</span>", unsafe_allow_html=True)
                 
                 if role == "Администратор проекта":
-                    with st.expander("Добавить новые данные (Загрузка нового CSV)"):
+                    with st.expander("Изменить данные (Загрузка нового CSV)"):
                         new_file = st.file_uploader("Загрузить файл для обогащения датасета", type=['csv'], key="new_csv")
                         if new_file is not None:
                             ver_name = f"v_before_merge_{datetime.datetime.now().strftime('%H:%M:%S')}"
@@ -310,20 +360,39 @@ else:
                     st.success(f"Версия {new_ver} сохранена!")
                     st.rerun()
         
-        # --- ВКЛАДКА 5: LLM ---
+        # --- ВКЛАДКА 5: LLM Roadmap ---
         with tab5:
             if role in ["Разметчик", "Эксперт предметной области"]:
-                st.markdown("<span style='color: #f7768e;'>Доступ закрыт.</span>", unsafe_allow_html=True)
+                st.markdown("<span style='color: #f7768e;'>Доступ закрыт. Дорожную карту формируют ML-инженеры и Аналитики.</span>", unsafe_allow_html=True)
             else:
-                st.markdown("<br><h4 style='color: #bb9af7;'>Генерация заданий</h4>", unsafe_allow_html=True)
-                st.markdown(f"**[ЗАДАЧА-01]** Очистка: удалить **{df['дубликат'].sum()}** дубликатов.")
-                st.markdown(f"**[ЗАДАЧА-02]** Разметка: перепроверить **{len(suspicious_data)}** конфликтов.")
+                st.markdown("<br><h4 style='color: #9ece6a;'>Математически выверенный план действий</h4>", unsafe_allow_html=True)
+                
+                # Получаем жесткие расчетные шаги
+                roadmap_actions = bl.generate_deterministic_roadmap(df, classes)
+                
+                for i, action in enumerate(roadmap_actions, 1):
+                    st.info(f"**Шаг {i}:** {action}")
+                
+                st.divider()
+                st.markdown("<h4 style='color: #bb9af7;'>Генерация управленческого задания (Ollama)</h4>", unsafe_allow_html=True)
+                st.markdown("<span style='color: #565f89;'>LLM использует только детерминированные данные выше, чтобы исключить галлюцинации.</span>", unsafe_allow_html=True)
                 
                 llm_model = st.text_input("Название модели Ollama (например, llama3.2):", value="llama3.2")
-                if st.button("Сгенерировать план"):
-                    prompt = f"Действуй как MLOps Engineer. Датасет: {len(df)} строк. Дубликатов: {df['дубликат'].sum()}. Ошибок разметки: {len(suspicious_data)}. Уровень готовности: {readiness_lvl}%. Напиши краткий план из 3 пунктов для улучшения."
+                if st.button("Сгенерировать ТЗ для команды"):
+                    actions_text = "\n".join([f"- {a}" for a in roadmap_actions])
+                    
+                    # Промпт теперь жестко контролирует ИИ
+                    prompt = f"""Ты MLOps-руководитель. Ниже приведен точный список задач, рассчитанный аналитической системой. 
+                    Твоя задача — написать краткое, профессиональное Техническое Задание (ТЗ) для команды Data-инженеров и разметчиков на основе ТОЛЬКО этих пунктов. 
+                    Не выдумывай новые цифры и метрики!
+                    Список задач:
+                    {actions_text}"""
+                    
                     try:
                         res = requests.post("http://localhost:11434/api/generate", json={"model": llm_model, "prompt": prompt, "stream": False}, timeout=15)
-                        st.info(res.json()['response']) if res.status_code == 200 else st.error("Ошибка API")
+                        if res.status_code == 200:
+                            st.success(res.json()['response'])
+                        else:
+                            st.error(f"Ошибка API: {res.status_code}")
                     except:
-                        st.error("Нет подключения к Ollama.")
+                        st.error("Нет подключения к Ollama. Проверь, запущен ли локальный сервер.")

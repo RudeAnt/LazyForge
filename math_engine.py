@@ -75,13 +75,19 @@ def calculate_novelty(df: pd.DataFrame, classes: list) -> pd.DataFrame:
 def calculate_bayesian_error(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     
-    if 'автор_разметки' not in df.columns:
-        df['автор_разметки'] = np.random.choice(["expert", "junior"], size=len(df))
+    # Ищем колонку с автором разметки. В новом датасете она называется 'разметчик'
+    author_col = 'разметчик' if 'разметчик' in df.columns else 'автор_разметки'
+    
+    if author_col not in df.columns:
+        df[author_col] = np.random.choice(["AutoLabel", "Intern_Vasya"], size=len(df))
 
-    df['вероятность_ошибки_человека'] = np.where(df['автор_разметки'] == 'expert', 0.05, 0.30)
+    # Раздаем историческую вероятность ошибки для реальных разметчиков из датасета
+    # Допустим, Вася косячит в 40% случаев, а AutoLabel ошибается в 10%
+    df['вероятность_ошибки_человека'] = np.where(df[author_col] == 'Intern_Vasya', 0.40, 0.10)
     
     mismatch_mask = df['истинный_класс'] != df['предсказанный_класс']
     
+    # Байесовский пересчет
     df['вероятность_ошибки_разметки'] = np.where(
         mismatch_mask,
         df['уверенность'] * (1 + df['вероятность_ошибки_человека']),

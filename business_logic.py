@@ -32,3 +32,41 @@ def assign_status(row):
     if row['вероятность_ошибки_разметки'] > 0.5: return 'Potential_ERR'
     if row['norm_entropy'] > 0.6: return 'Ent_Chaos'
     return 'OK'
+
+def generate_deterministic_roadmap(df: pd.DataFrame, classes: list) -> list:
+    """
+    ШАГ 3: Детерминированная дорожная карта.
+    Формирует точные шаги на основе расчетов математического ядра.
+    """
+    actions = []
+    
+    # 1. Очистка дубликатов
+    dupes = df['дубликат'].sum()
+    if dupes > 0:
+        actions.append(f"Удалить {dupes} дубликатов для снижения шума в обучающей выборке.")
+        
+    # 2. Перепроверка ошибок разметки
+    errors = len(df[df['вероятность_ошибки_разметки'] > 0.5])
+    if errors > 0:
+        actions.append(f"Отправить на переразметку {errors} объектов (вероятность ошибки > 50%).")
+        
+    # 3. Экспертиза неопределенности
+    chaos = len(df[df['norm_entropy'] > 0.6])
+    if chaos > 0:
+        actions.append(f"Привлечь эксперта для {chaos} сложных случаев (высокая энтропия предсказаний).")
+        
+    # 4. Устранение дефицита конкретных классов (Ключевое требование кейса)
+    class_counts = df['истинный_класс'].value_counts()
+    ideal_count = len(df) / len(classes) if len(classes) > 0 else 0
+    
+    for cls in classes:
+        count = class_counts.get(cls, 0)
+        # Если представленность класса меньше 80% от идеальной
+        if count < ideal_count * 0.8: 
+            missing = int(ideal_count - count)
+            actions.append(f"Собрать минимум {missing} новых примеров для недонасыщенного класса '{cls}'.")
+            
+    if not actions:
+        actions.append("Датасет сбалансирован и готов к обучению. Дополнительные действия не требуются.")
+        
+    return actions
