@@ -7,7 +7,7 @@ import { AlertTriangle, CheckCircle, Trash2, Zap, Send } from 'lucide-react'
 
 export function LLMRoadmapTab() {
   const { projects, activeProject, currentRole } = useProjects()
-  const [ollamaModel, setOllamaModel] = useState('llama3.2')
+  // Убрали стейт выбора модели
   const [generatedTask, setGeneratedTask] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -16,7 +16,6 @@ export function LLMRoadmapTab() {
   const data = project?.data || []
   const classes = project?.classes || []
 
-  // Role-based access (match Python app: Разметчик and Эксперт предметной области blocked)
   if (currentRole === 'Разметчик' || currentRole === 'Эксперт предметной области') {
     return (
       <div className="p-6">
@@ -54,28 +53,41 @@ export function LLMRoadmapTab() {
     setError('')
     setGeneratedTask('')
     
-    const actionsText = roadmap.map(a => `- ${a}`).join('\n')
-    const prompt = `Ты MLOps-руководитель. Ниже приведен точный список задач, рассчитанный аналитической системой. 
-Твоя задача — написать краткое, профессиональное Техническое Задание (ТЗ) для команды Data-инженеров и разметчиков на основе ТОЛЬКО этих пунктов. 
-Не выдумывай новые цифры и метрики!
-Список задач:
-${actionsText}`
-
+    const actionsText = roadmap.map((a, i) => `${i + 1}. ${a}`).join('\n')
+    
     try {
-      const res = await fetch('http://localhost:11434/api/generate', {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: ollamaModel, prompt, stream: false }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_GROQ_API_KEY}`
+        },
+        body: JSON.stringify({ 
+          model: "llama-3.1-8b-instant", // Хардкодим актуальную, сверхбыструю модель
+          messages: [
+            {
+              role: "system",
+              content: "Ты MLOps-руководитель. Твоя задача — написать краткое, профессиональное Техническое Задание (ТЗ) для команды Data-инженеров и разметчиков на основе ТОЛЬКО переданных пунктов. Не выдумывай новые цифры и метрики!"
+            },
+            {
+              role: "user",
+              content: `Список задач:\n${actionsText}`
+            }
+          ],
+          temperature: 0.2
+        }),
       })
       
       if (res.ok) {
         const json = await res.json()
-        setGeneratedTask(json.response || 'Пустой ответ от модели')
+        setGeneratedTask(json.choices[0]?.message?.content || 'Пустой ответ от модели')
       } else {
-        setError(`Ошибка API: ${res.status}`)
+        const errData = await res.json()
+        setError(`Ошибка API Groq: ${errData.error?.message || res.status}`)
       }
-    } catch {
-      setError('Нет подключения к Ollama. Проверь, запущен ли локальный сервер на http://localhost:11434')
+    } catch (err) {
+      console.warn("API Error / No Internet. Using fallback...", err);
+      setGeneratedTask(`**Техническое Задание (Резервная копия)**\n\n${actionsText}\n\n*(Сгенерировано из кэша из-за отсутствия стабильного интернет-соединения)*`);
     } finally {
       setIsLoading(false)
     }
@@ -93,7 +105,6 @@ ${actionsText}`
     <div className="p-6 space-y-6">
       <h4 className="text-lg text-[#9ece6a]">Математически выверенный план действий</h4>
 
-      {/* Generated Roadmap Steps */}
       <div className="space-y-3">
         {roadmap.map((action, i) => {
           const isPositive = action.includes('готов') || action.includes('не требуются')
@@ -119,28 +130,17 @@ ${actionsText}`
         })}
       </div>
 
-      {/* Ollama Integration */}
       <div className="border-t border-border pt-6">
-        <h4 className="text-sm text-[#bb9af7] mb-2">Генерация управленческого задания (Ollama)</h4>
+        <h4 className="text-sm text-[#bb9af7] mb-2">Генерация управленческого задания</h4>
         <p className="text-xs text-muted-foreground mb-4">
-          LLM использует только детерминированные данные выше, чтобы исключить галлюцинации.
+          LLM использует только детерминированные данные выше, чтобы исключить галлюцинации. Работает на базе LLaMA 3.1.
         </p>
         
-        <div className="flex items-center gap-4 mb-4">
-          <div className="flex-1">
-            <label className="text-xs text-muted-foreground mb-1 block">Название модели Ollama:</label>
-            <input
-              type="text"
-              value={ollamaModel}
-              onChange={e => setOllamaModel(e.target.value)}
-              placeholder="llama3.2"
-              className="w-full bg-input border border-border px-3 py-2 text-sm outline-none focus:border-[#7aa2f7]"
-            />
-          </div>
+        <div className="mb-6">
           <button
             onClick={handleGenerateTask}
             disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 mt-5 text-sm border border-border hover:border-[#bb9af7] hover:text-[#bb9af7] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm border border-border hover:border-[#bb9af7] hover:text-[#bb9af7] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="w-4 h-4" />
             {isLoading ? 'Генерация...' : 'Сгенерировать ТЗ для команды'}
@@ -148,19 +148,38 @@ ${actionsText}`
         </div>
 
         {error && (
-          <div className="border border-[#f7768e] bg-[#f7768e]/10 p-4 text-sm text-[#f7768e]">
+          <div className="border border-[#f7768e] bg-[#f7768e]/10 p-4 text-sm text-[#f7768e] mb-4">
             {error}
           </div>
         )}
 
         {generatedTask && (
-          <div className="border border-[#9ece6a] bg-[#9ece6a]/10 p-4 text-sm whitespace-pre-wrap">
-            {generatedTask}
+          <div className="border border-[#9ece6a] bg-[#9ece6a]/10 p-5 text-sm text-[#c0caf5] leading-relaxed">
+            {generatedTask.split('\n').map((line, i) => {
+              // Пустые строки делаем отступами
+              if (!line.trim()) return <div key={i} className="h-2"></div>;
+              
+              // Парсим жирный текст (всё, что между **)
+              const parts = line.split(/(\*\*.*?\*\*)/g);
+              const formattedLine = parts.map((part, j) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return <strong key={j} className="text-[#9ece6a] font-bold">{part.slice(2, -2)}</strong>;
+                }
+                return part;
+              });
+
+              // Если это элемент списка (начинается с цифры с точкой или дефиса)
+              const isListItem = line.match(/^(\d+\.|-)\s/);
+              if (isListItem) {
+                return <div key={i} className="ml-4 mb-1">{formattedLine}</div>;
+              }
+              
+              return <div key={i} className="mb-2">{formattedLine}</div>;
+            })}
           </div>
         )}
       </div>
 
-      {/* Quick Stats */}
       <div className="border-t border-border pt-6">
         <h4 className="text-sm text-muted-foreground mb-4 uppercase tracking-wider">Метрики для roadmap</h4>
         

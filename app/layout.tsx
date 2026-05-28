@@ -9,7 +9,7 @@ const firaCode = Fira_Code({
 })
 
 export const metadata: Metadata = {
-  title: 'DataForge-AI v1.2',
+  title: 'LazyForge-AI v1.2',
   description: 'MLOps Workspace',
 }
 

@@ -47,7 +47,7 @@ export function Sidebar() {
     <aside className="w-64 h-screen bg-sidebar border-r border-border flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-border">
-        <span className="text-[#9ece6a] text-sm">DataForge-AI v1.2</span>
+        <span className="text-[#9ece6a] text-sm">LazyForge-AI v1.2</span>
       </div>
       
       {/* Role Selector */}

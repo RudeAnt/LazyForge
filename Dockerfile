@@ -7,7 +7,7 @@ RUN corepack enable
 
 COPY package.json pnpm-lock.yaml ./
 
-RUN pnpm install --frozen-lockfile --dangerously-allow-all-builds
+RUN pnpm install --no-frozen-lockfile --dangerously-allow-all-builds
 
 
 FROM base AS builder
